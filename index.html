@@ -1,0 +1,902 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Caçambas"><title>Mapa das Caçambas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: app de uma tela no celular. Cabeçalho com totais, área central (mapa ou listas), abas embaixo. */
+:root{
+  --bg:#e9ecee; --surface:#ffffff; --surface2:#f2f5f6; --ink:#15212b; --muted:#566673; --line:#cdd5da;
+  --accent:#1c5f8f; --on-accent:#ffffff;
+  --go:#2a8a4a; --on-go:#ffffff;
+  --late:#d6372e; --on-late:#ffffff;
+  --due:#e08a00; --on-due:#1b1200;
+  --disc:#3b4a57; --on-disc:#ffffff;
+  --grid:rgba(21,33,43,.08); --map-bg:#dfe5e8; --scrim:rgba(10,18,24,.5);
+  --display:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;
+  --body:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10171d; --surface:#18222b; --surface2:#1f2b35; --ink:#e8eef2; --muted:#9aaab6; --line:#2d3b47;
+    --accent:#6bb4e6; --on-accent:#0b1720;
+    --go:#46b868; --on-go:#06210f; --late:#ff6a5f; --on-late:#2a0805; --due:#f2a93b; --on-due:#1b1200;
+    --disc:#8fa3b3; --on-disc:#0f1a22;
+    --grid:rgba(232,238,242,.08); --map-bg:#141d25; --scrim:rgba(0,0,0,.6); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10171d; --surface:#18222b; --surface2:#1f2b35; --ink:#e8eef2; --muted:#9aaab6; --line:#2d3b47;
+  --accent:#6bb4e6; --on-accent:#0b1720;
+  --go:#46b868; --on-go:#06210f; --late:#ff6a5f; --on-late:#2a0805; --due:#f2a93b; --on-due:#1b1200;
+  --disc:#8fa3b3; --on-disc:#0f1a22;
+  --grid:rgba(232,238,242,.08); --map-bg:#141d25; --scrim:rgba(0,0,0,.6); color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column;min-height:0}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Cabeçalho */
+.top{background:var(--surface);border-bottom:1px solid var(--line);padding-block:10px 10px}
+.top .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand{font:700 24px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
+.sync{font-size:12px;color:var(--muted);text-align:right}
+button.sync{background:none;border:0;padding:6px 0;min-height:32px;font-family:inherit}
+.chips{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface2);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--muted);white-space:nowrap}
+.chip b{color:var(--ink);font:700 16px/1 var(--display);margin-right:3px;font-variant-numeric:tabular-nums}
+.chip.late{border-color:var(--late)}
+.chip.late b{color:var(--late)}
+.chip.due{border-color:var(--due)}
+
+/* Áreas */
+main{flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+.view{flex:1;min-height:0;overflow:auto}
+.wrap{padding-block:16px 28px;display:flex;flex-direction:column;gap:14px}
+h2{font:700 24px/1.1 var(--display);letter-spacing:.01em;margin:0;text-transform:uppercase}
+h3{font:700 15px/1.2 var(--body);margin:6px 0 0;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.sub{margin:0;color:var(--muted)}
+.empty{margin:0;padding:18px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);background:var(--surface)}
+
+/* Abas */
+.tabs{background:var(--surface);border-top:1px solid var(--line);display:flex}
+.tabs button{flex:1;background:none;border:0;padding:8px 2px 9px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:500;color:var(--muted);min-width:0}
+.tabs svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
+
+/* Botões e campos */
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--ink);text-align:center}
+.btn.sm{min-height:40px;padding:0 12px;font-size:14px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.danger{border-color:var(--late);color:var(--late)}
+.btn.ghost{background:none}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld>span,.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+input:not([type=checkbox]),select{width:100%;min-height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface2);padding:0 12px;min-width:0}
+.chk{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:500}
+.chk input{width:22px;height:22px;accent-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.err{margin:0;color:var(--late);font-weight:600}
+.warn{margin:0;padding:8px 10px;border-radius:8px;background:var(--surface2);border-left:4px solid var(--due)}
+.hint{margin:0;font-size:13px;color:var(--muted);min-height:1em}
+.loc{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
+.loc-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.coord{font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
+.loc-btns{display:flex;gap:8px;flex-wrap:wrap}
+.loc-btns .btn{flex:1 1 150px}
+
+/* Cartões */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.tap{cursor:pointer}
+.crow{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.num{flex:none;width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font:700 24px/1 var(--display);background:var(--go);color:var(--on-go)}
+.num.pronta{background:var(--late);color:var(--on-late)}
+.num.pendente{background:var(--due);color:var(--on-due)}
+.num.encerrada{background:var(--surface2);color:var(--muted)}
+.num.disc{background:var(--disc);color:var(--on-disc);border-radius:12px}
+.cbody{min-width:0;flex:1}
+.ctitle{font-weight:600;overflow-wrap:anywhere}
+.cmeta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);margin-right:6px;margin-top:4px}
+.pill.pronta{border-color:var(--late);color:var(--late)}
+.pill.rua{border-color:var(--go);color:var(--go)}
+.pill.pendente{border-color:var(--due);color:var(--ink);background:color-mix(in srgb,var(--due) 22%,transparent)}
+.pill.ok{border-color:var(--go);color:var(--go)}
+.cact{display:flex;gap:8px;flex-wrap:wrap}
+.cact .btn{flex:1 1 90px}
+.sw{flex:none;min-height:40px;padding:0 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface2);font-weight:600;font-size:13px}
+.sw[aria-pressed="true"]{background:var(--go);border-color:var(--go);color:var(--on-go)}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.opt:has(input:checked){border-color:var(--accent);background:var(--surface2)}
+.opt input{width:20px;height:20px;margin-top:2px;accent-color:var(--accent);flex:none}
+.route{background:var(--surface);border:1.5px solid var(--accent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.route .steps{font:600 16px/1.25 var(--display);letter-spacing:.02em;text-transform:uppercase;overflow-wrap:anywhere}
+
+/* Dinheiro */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile-k{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.tile-k .k{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.tile-k .v{font:700 26px/1.1 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile-k.main{border-color:var(--accent)}
+.neg{color:var(--late)}
+.mes{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mes .btn{width:46px;padding:0}
+.mes strong{font:700 20px/1 var(--display);text-transform:uppercase;letter-spacing:.02em;text-align:center;flex:1}
+.bar{display:flex;align-items:center;gap:10px}
+.bar .l{width:112px;flex:none;font-weight:500}
+.bar .t{flex:1;height:12px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--accent);border-radius:6px}
+.bar .v{width:92px;flex:none;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;font-size:14px}
+
+/* Mapa */
+#map{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;background-color:var(--map-bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px)}
+#tiles,#pins{position:absolute;left:0;top:0;width:0;height:0}
+.tile{position:absolute;left:0;top:0;width:256px;height:256px;max-width:none;pointer-events:none;user-select:none}
+.pin{position:absolute;left:0;top:0;width:38px;height:38px;margin:-46px 0 0 -19px;border-radius:50%;border:2.5px solid var(--surface);padding:0;
+  display:grid;place-items:center;font:700 18px/1 var(--display);background:var(--pc);color:var(--fc);box-shadow:0 1px 4px rgba(0,0,0,.4);will-change:transform}
+.pin::after{content:"";position:absolute;left:50%;bottom:-10px;margin-left:-6px;border:6px solid transparent;border-top-color:var(--pc);border-bottom:0}
+.pin-rua{--pc:var(--go);--fc:var(--on-go)}
+.pin-pronta{--pc:var(--late);--fc:var(--on-late)}
+.pin-pendente{--pc:var(--due);--fc:var(--on-due)}
+.pin-d{--pc:var(--disc);--fc:var(--on-disc);border-radius:10px}
+.pin-d.off{opacity:.5}
+.tag{position:absolute;right:-10px;top:-10px;min-width:19px;height:19px;border-radius:10px;font:700 11px/16px var(--body);font-style:normal;text-align:center;padding:0 3px;
+  background:var(--surface);color:var(--go);border:1.5px solid var(--go)}
+.tag.due{background:var(--due);color:var(--on-due);border-color:var(--surface)}
+.maptop{position:absolute;left:0;right:0;top:0;padding-top:10px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.maptop>*{pointer-events:auto}
+.mrow{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
+.mrow>*{pointer-events:auto}
+.legend{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:500}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend i.sq{border-radius:3px}
+.zoom{display:flex;flex-direction:column;gap:6px}
+.zoom button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font:700 22px/1 var(--body);display:grid;place-items:center;padding:0}
+.zoom svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.note{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--due);border-radius:8px;padding:6px 10px;font-size:12.5px}
+.scale{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:12px;font-size:11px;font-weight:600;color:var(--ink);pointer-events:none}
+.scale i{display:block;height:6px;border:2px solid var(--ink);border-top:0;margin-bottom:2px}
+.attr{position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:2px;font-size:10px;color:var(--ink);background:color-mix(in srgb,var(--surface) 80%,transparent);padding:0 4px;pointer-events:none}
+#fab{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:30px;min-height:52px;padding:0 20px;border-radius:999px;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.mapempty{position:absolute;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));top:46%;transform:translateY(-50%);text-align:center;pointer-events:none}
+.mapempty .empty{display:inline-block;max-width:340px;pointer-events:auto}
+#cross{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+#cross i{position:absolute;left:-17px;top:-17px;width:34px;height:34px;border:3px solid var(--accent);border-radius:50%;background:color-mix(in srgb,var(--accent) 18%,transparent)}
+#cross b{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+#pickbar{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-top:12px;padding-bottom:12px;display:flex;flex-direction:column;gap:8px}
+#pickbar p{margin:0;font-weight:500}
+#pickbar .r{display:flex;gap:8px}
+#pickbar .r .btn{flex:1}
+
+/* Folha e aviso */
+#sheet{position:fixed;inset:0;z-index:50}
+#sheet .scrim{position:absolute;inset:0;background:var(--scrim)}
+#sheet .panel{position:absolute;left:0;right:0;bottom:0;max-height:92%;display:flex;flex-direction:column;background:var(--surface);border-radius:16px 16px 0 0;border-top:1px solid var(--line)}
+#sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 0;flex:none}
+#sheetBody{overflow:auto;display:flex;flex-direction:column;gap:12px;padding-top:12px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sh-title{font:700 26px/1.05 var(--display);text-transform:uppercase;margin:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+.kv dt{color:var(--muted);font-size:13px}
+.kv dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.copy{background:none;border:0;color:var(--accent);font-weight:600;padding:0 0 0 8px;min-height:32px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:60;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:14px;font-weight:500}
+#toast button{background:none;border:0;color:var(--bg);font-weight:700;text-decoration:underline;min-height:32px;padding:0}
+@media (prefers-reduced-motion: no-preference){ #sheet .panel{animation:up .18s ease-out} @keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}} }
+@media (min-width:700px){ .wrap,#sheetBody{max-width:640px;margin-inline:auto;width:100%} #sheet .panel{left:50%;right:auto;width:640px;transform:translateX(-50%)} }
+</style>
+</head><body>
+<div id="app">
+  <header class="top gut">
+    <div class="row">
+      <h1 class="brand">Mapa das Caçambas</h1>
+      <button class="sync" id="sync" type="button">Conectando</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <main>
+    <section class="view" id="v-mapa" style="display:flex;flex-direction:column;overflow:hidden" aria-label="Mapa">
+      <div id="map">
+        <div id="tiles"></div>
+        <div id="pins"></div>
+        <div class="maptop gut">
+          <div class="note" id="noTiles" hidden>O fundo do mapa não carregou. Confira a internet. Os pinos continuam nas posições certas.</div>
+          <div class="mrow">
+            <div class="legend" aria-label="Legenda">
+              <span><i style="background:var(--go)"></i>No prazo</span>
+              <span><i style="background:var(--late)"></i>Pronta para buscar</span>
+              <span><i style="background:var(--due)"></i>Retirada, falta pagar</span>
+              <span><i class="sq" style="background:var(--disc)"></i>Descarte</span>
+            </div>
+            <div class="zoom">
+              <button type="button" id="zin" aria-label="Aproximar">+</button>
+              <button type="button" id="zout" aria-label="Afastar">&minus;</button>
+              <button type="button" id="zfit" aria-label="Mostrar tudo"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="mapempty" id="mapEmpty" hidden><p class="empty">Nenhuma caçamba na rua. Toque em Deixei caçamba para registrar a primeira entrega.</p></div>
+        <div class="scale" id="scale"></div>
+        <div class="attr" id="attr" hidden>© OpenStreetMap</div>
+        <div id="cross" hidden><i></i><b></b></div>
+        <button class="btn primary" id="fab" type="button">Deixei caçamba</button>
+        <div id="pickbar" class="gut" hidden>
+          <p>Mova o mapa até o ponto exato e toque em Confirmar.</p>
+          <div class="r"><button class="btn ghost" id="pickNo" type="button">Cancelar</button><button class="btn primary" id="pickOk" type="button">Confirmar aqui</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-pedido" hidden aria-label="Novo pedido">
+      <div class="wrap gut">
+        <h2>Novo pedido</h2>
+        <p class="sub">Marque o local do cliente. O app mostra as caçambas prontas e os descartes mais perto e abre a rota no Google Maps.</p>
+        <label class="fld"><span>Endereço do cliente</span><input id="p-end" autocomplete="off" placeholder="Rua, número, bairro"></label>
+        <div id="p-loc"></div>
+        <div id="pedRes"></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-lista" hidden aria-label="Caçambas"><div class="wrap gut" id="listaBox"></div></section>
+    <section class="view" id="v-descarte" hidden aria-label="Pontos de descarte"><div class="wrap gut" id="descBox"></div></section>
+    <section class="view" id="v-dinheiro" hidden aria-label="Dinheiro"><div class="wrap gut" id="dinBox"></div></section>
+  </main>
+
+  <nav class="tabs gut" id="tabs" aria-label="Seções">
+    <button type="button" data-tab="mapa" aria-current="page"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.2-6-10a6 6 0 1112 0c0 4.8-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/></svg>Mapa</button>
+    <button type="button" data-tab="pedido"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Pedido</button>
+    <button type="button" data-tab="lista"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>Caçambas</button>
+    <button type="button" data-tab="descarte"><svg viewBox="0 0 24 24"><path d="M4 9h16l-1.8 10H5.8L4 9zM8 9V5h8v4"/></svg>Descarte</button>
+    <button type="button" data-tab="dinheiro"><svg viewBox="0 0 24 24"><path d="M12 4v16M16 8H10a2.5 2.5 0 000 5h4a2.5 2.5 0 010 5H8"/></svg>Dinheiro</button>
+  </nav>
+</div>
+
+<div id="sheet" hidden>
+  <div class="scrim" data-close></div>
+  <div class="panel" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+</div>
+<div id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+'use strict';
+var FORMAS=['Dinheiro','Cartão','Pix','Link de pagamento'];
+var PADRAO=135;
+var CENTRO={lat:-10.8853,lng:-61.9517};
+
+const $=(s,r)=>(r||document).querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const dayNum=s=>{const p=String(s).split('-').map(Number);return Math.floor(Date.UTC(p[0],p[1]-1,p[2])/864e5)};
+const daysOut=r=>dayNum(todayStr())-dayNum(r.entrega);
+const isLate=r=>daysOut(r)>=2;
+const fmtD=s=>s?s.slice(8,10)+'/'+s.slice(5,7):'';
+const wday=s=>{const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','')};
+const brl=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0);
+const monthLabel=m=>{const p=m.split('-').map(Number);return new Date(p[0],p[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};
+const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:NaN};
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const valid=o=>!!o&&typeof o.lat==='number'&&typeof o.lng==='number'&&isFinite(o.lat)&&isFinite(o.lng);
+const km=(a,b)=>{const t=x=>x*Math.PI/180,dLa=t(b.lat-a.lat),dLo=t(b.lng-a.lng);const h=Math.sin(dLa/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dLo/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+const fmtKm=k=>k<1?(Math.round(k*100)*10)+' m':k.toFixed(1).replace('.',',')+' km';
+const coordTxt=d=>valid(d)?d.lat.toFixed(5)+', '+d.lng.toFixed(5):'sem local';
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+function status(r){ if(r.retirada&&r.pago)return 'encerrada'; if(r.retirada)return 'pendente'; return isLate(r)?'pronta':'rua'; }
+const STLABEL={rua:'No prazo',pronta:'Pronta para buscar',pendente:'Retirada, falta pagar',encerrada:'Encerrada'};
+const abertos=()=>S.alugueis.filter(r=>status(r)!=='encerrada');
+
+/* ---------- Estado e dados ---------- */
+const S={alugueis:[],descartes:[],gastos:[],ready:{alugueis:false,descartes:false,gastos:false},mode:'conectando',tab:'mapa',
+  mes:todayStr().slice(0,7),showEnc:false,fitted:false,pedido:{endereco:'',lat:null,lng:null,selId:null,discId:null,todas:false}};
+let API='';
+try{API=localStorage.getItem('cacambas.api')||''}catch(e){}
+let pending=0;
+const allReady=()=>S.ready.alugueis&&S.ready.descartes&&S.ready.gastos;
+const readyAll=()=>{S.ready={alugueis:true,descartes:true,gastos:true}};
+function loadLocal(){try{const raw=localStorage.getItem('cacambas.v1');if(!raw)return false;const j=JSON.parse(raw);S.alugueis=j.alugueis||[];S.descartes=j.descartes||[];S.gastos=j.gastos||[];return true}catch(e){return false}}
+function saveLocal(){try{localStorage.setItem('cacambas.v1',JSON.stringify({alugueis:S.alugueis,descartes:S.descartes,gastos:S.gastos}))}catch(e){}}
+function clean(o){const c={};Object.keys(o).forEach(k=>{if(o[k]!==undefined)c[k]=o[k]});return c}
+function upsertMem(col,o){const a=S[col],i=a.findIndex(x=>x.id===o.id);if(i>=0)a[i]=o;else a.push(o)}
+async function api(body){
+  let res;
+  if(body)res=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+  else res=await fetch(API+(API.indexOf('?')>=0?'&':'?')+'action=load');
+  const t=await res.text();let j;
+  try{j=JSON.parse(t)}catch(e){throw new Error('resposta inválida')}
+  if(j&&j.error)throw new Error(j.error);
+  return j;
+}
+async function put(col,o){
+  o=clean(o);upsertMem(col,o);saveLocal();onData();
+  if(API){
+    pending++;
+    try{await api({action:'put',col:col,obj:o})}
+    catch(e){toast('Não consegui salvar na planilha. Confira a internet e tente de novo.');return false}
+    finally{pending--}
+  }
+  return true;
+}
+async function del(col,id){
+  S[col]=S[col].filter(x=>x.id!==id);saveLocal();onData();
+  if(API){
+    pending++;
+    try{await api({action:'del',col:col,id:id})}
+    catch(e){toast('Não consegui apagar na planilha. Tente de novo.');return false}
+    finally{pending--}
+  }
+  return true;
+}
+async function loadRemote(first){
+  if(!API||pending>0)return;
+  try{
+    const j=await api();
+    if(pending>0)return;
+    const vazio=!(j.alugueis&&j.alugueis.length)&&!(j.descartes&&j.descartes.length)&&!(j.gastos&&j.gastos.length);
+    if(S.migrar&&vazio&&(S.alugueis.length||S.descartes.length||S.gastos.length)){
+      S.migrar=false;pending++;
+      try{
+        for(const col of ['alugueis','descartes','gastos'])for(const o of S[col])await api({action:'put',col:col,obj:o});
+        toast('Os dados deste aparelho foram enviados para a planilha.');
+      }catch(e){toast('Não consegui enviar os dados deste aparelho para a planilha.')}
+      finally{pending--}
+      S.mode='nuvem';readyAll();onData();return;
+    }
+    S.migrar=false;
+    S.alugueis=j.alugueis||[];S.descartes=j.descartes||[];S.gastos=j.gastos||[];
+    S.mode='nuvem';saveLocal();readyAll();
+    if(!S.fitted){S.fitted=true;fitAll()}
+    onData();
+  }catch(e){
+    S.mode='erro';readyAll();onData();
+    if(first)toast('Não consegui abrir a planilha. Confira o link e se o acesso está como Qualquer pessoa.');
+  }
+}
+function openConexao(){
+  const html='<h2 class="sh-title">Planilha Google</h2>'+
+  '<p class="sub">'+(API?'Conectado. Os dados ficam na planilha "Mapa das Caçambas - dados" do seu Drive.':'Cole o link do app da web do Apps Script (termina em /exec). Sem ele, os dados ficam só neste aparelho.')+'</p>'+
+  '<label class="fld"><span>Link da planilha (termina em /exec)</span><input id="c-url" autocomplete="off" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(API)+'"></label>'+
+  '<p class="err" id="c-err" role="alert" hidden></p>'+
+  '<div class="actions"><button class="btn primary" id="c-save" type="button">'+(API?'Salvar link':'Conectar')+'</button>'+
+  (API?'<button class="btn" id="c-ref" type="button">Atualizar agora</button><button class="btn danger" id="c-off" type="button">Desconectar deste aparelho</button>':'<button class="btn ghost" id="c-local" type="button">Usar só neste aparelho por enquanto</button>')+
+  '<button class="btn ghost" data-close type="button">Fechar</button></div>';
+  openSheet(html,()=>{
+    $('#c-save').addEventListener('click',()=>{
+      const v=$('#c-url').value.trim();
+      if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(v)){const e=$('#c-err');e.textContent='O link precisa começar com https://script.google.com e terminar em /exec.';e.hidden=false;return}
+      API=v;try{localStorage.setItem('cacambas.api',v);localStorage.removeItem('cacambas.sem')}catch(e){}
+      S.migrar=true;S.mode='conectando';renderHeader();closeSheet();loadRemote(true);
+    });
+    const r=$('#c-ref');if(r)r.addEventListener('click',()=>{closeSheet();S.mode='conectando';renderHeader();loadRemote(true)});
+    const o=$('#c-off');if(o)o.addEventListener('click',()=>{API='';try{localStorage.removeItem('cacambas.api')}catch(e){}S.mode='local';closeSheet();renderHeader();toast('Desconectado. Os dados continuam salvos neste aparelho.')});
+    const l=$('#c-local');if(l)l.addEventListener('click',()=>{try{localStorage.setItem('cacambas.sem','1')}catch(e){}closeSheet()});
+  });
+}
+async function boot(){
+  const had=loadLocal();
+  if(!API){
+    S.mode='local';readyAll();S.fitted=true;onData();fitAll();
+    let sem=false;try{sem=!!localStorage.getItem('cacambas.sem')}catch(e){}
+    if(!sem)openConexao();
+    return;
+  }
+  S.mode='conectando';
+  if(had){readyAll();S.fitted=true;onData();fitAll()}
+  await loadRemote(true);
+}
+$('#sync').addEventListener('click',openConexao);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&API)loadRemote(false)});
+
+/* ---------- Aviso e folha ---------- */
+let toastT=null;
+function toast(msg,label,fn){
+  const t=$('#toast');t.innerHTML='<span></span>';t.firstChild.textContent=msg;
+  if(label){const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',()=>{t.hidden=true;if(fn)fn()});t.appendChild(b)}
+  t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true},label?7000:3500);
+}
+function openSheet(html,mount){const b=$('#sheetBody');b.innerHTML=html;$('#sheet').hidden=false;b.scrollTop=0;if(mount)mount(b)}
+function closeSheet(){$('#sheet').hidden=true;$('#sheetBody').innerHTML=''}
+$('#sheet').addEventListener('click',e=>{if(e.target.closest('[data-close]'))closeSheet()});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('#sheet').hidden)closeSheet();else if(M.picking)endPick(false)}});
+
+/* ---------- Cabeçalho e abas ---------- */
+function renderHeader(){
+  const ready=allReady();
+  const ab=abertos(),rua=ab.filter(r=>!r.retirada).length,pr=ab.filter(r=>status(r)==='pronta').length;
+  const dev=S.alugueis.filter(r=>!r.pago).reduce((s,r)=>s+(Number(r.valor)||0),0);
+  $('#chips').innerHTML=ready
+    ?'<span class="chip"><b>'+rua+'</b>na rua</span><span class="chip late"><b>'+pr+'</b>prontas</span><span class="chip due"><b>'+esc(brl(dev))+'</b>a receber</span>'
+    :'<span class="chip">Carregando dados</span>';
+  $('#sync').textContent=S.mode==='nuvem'?'Planilha Google · ver':S.mode==='local'?'Só neste aparelho · conectar':S.mode==='erro'?'Sem conexão · ver':'Conectando';
+}
+function go(tab){
+  S.tab=tab;
+  ['mapa','pedido','lista','descarte','dinheiro'].forEach(t=>{$('#v-'+t).hidden=t!==tab});
+  document.querySelectorAll('#tabs button').forEach(b=>{if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  renderTab();schedule();
+}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>{if(M.picking)return;go(b.dataset.tab)}));
+function onData(){renderHeader();syncPins();renderTab()}
+function renderTab(){
+  if(!allReady()){const msg='<p class="empty">Carregando dados...</p>';if(S.tab==='lista')$('#listaBox').innerHTML=msg;else if(S.tab==='descarte')$('#descBox').innerHTML=msg;else if(S.tab==='dinheiro')$('#dinBox').innerHTML=msg;return}
+  if(S.tab==='lista')renderLista();else if(S.tab==='descarte')renderDescarte();else if(S.tab==='dinheiro')renderDinheiro();else if(S.tab==='pedido')renderPedidoResults();
+  $('#mapEmpty').hidden=!(allReady()&&!abertos().filter(valid).length&&!S.descartes.filter(valid).length&&!M.picking);
+}
+
+/* ---------- Mapa ---------- */
+const M={lat:CENTRO.lat,lng:CENTRO.lng,z:13,w:0,h:0,tiles:new Map(),pins:[],picking:null,tileOk:false,tileFail:0,moved:0,pendingFit:false,raf:0};
+const TS=256;
+const mapEl=$('#map'),tileLayer=$('#tiles'),pinLayer=$('#pins');
+const wx=(lng,z)=>(lng+180)/360*TS*2**z;
+const wy=(lat,z)=>{const s=Math.sin(lat*Math.PI/180);return(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*TS*2**z};
+const unx=(x,z)=>x/(TS*2**z)*360-180;
+const uny=(y,z)=>{const n=Math.PI-2*Math.PI*y/(TS*2**z);return 180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n)))};
+function schedule(){if(M.raf)return;M.raf=requestAnimationFrame(()=>{M.raf=0;draw()})}
+function draw(){
+  if(!M.w||!M.h)return;
+  const cx=wx(M.lng,M.z),cy=wy(M.lat,M.z),ox=cx-M.w/2,oy=cy-M.h/2,n=2**M.z;
+  const x0=Math.floor(ox/TS),x1=Math.floor((ox+M.w)/TS),y0=Math.max(0,Math.floor(oy/TS)),y1=Math.min(n-1,Math.floor((oy+M.h)/TS));
+  const want=new Set();
+  for(let ty=y0;ty<=y1;ty++)for(let tx=x0;tx<=x1;tx++){
+    const txm=((tx%n)+n)%n,key=M.z+'/'+txm+'/'+ty+'@'+tx;
+    want.add(key);
+    let im=M.tiles.get(key);
+    if(!im){
+      im=new Image();im.alt='';im.draggable=false;im.className='tile';
+      im.onload=()=>{if(!M.tileOk){M.tileOk=true;$('#noTiles').hidden=true;$('#attr').hidden=false}};
+      im.onerror=()=>{im.style.display='none';M.tileFail++;if(!M.tileOk&&M.tileFail>=2)$('#noTiles').hidden=false};
+      im.src='https://tile.openstreetmap.org/'+M.z+'/'+txm+'/'+ty+'.png';
+      tileLayer.appendChild(im);M.tiles.set(key,im);
+    }
+    im.style.transform='translate('+Math.round(tx*TS-ox)+'px,'+Math.round(ty*TS-oy)+'px)';
+  }
+  M.tiles.forEach((im,k)=>{if(!want.has(k)){im.remove();M.tiles.delete(k)}});
+  M.pins.forEach(p=>{p.el.style.transform='translate('+(wx(p.lng,M.z)-ox).toFixed(1)+'px,'+(wy(p.lat,M.z)-oy).toFixed(1)+'px)'});
+  const mpp=156543.03392*Math.cos(M.lat*Math.PI/180)/n;
+  const steps=[20,50,100,200,500,1000,2000,5000,10000,20000];
+  let d=steps[steps.length-1];for(let i=0;i<steps.length;i++){if(steps[i]/mpp>=70){d=steps[i];break}}
+  const px=d/mpp;
+  mapEl.style.backgroundSize=px+'px '+px+'px';
+  mapEl.style.backgroundPosition=(((-ox)%px)+px)%px+'px '+(((-oy)%px)+px)%px+'px';
+  $('#scale').innerHTML='<i style="width:'+px.toFixed(0)+'px"></i>'+(d>=1000?(d/1000)+' km':d+' m');
+}
+function syncPins(){
+  pinLayer.innerHTML='';M.pins=[];
+  abertos().filter(valid).forEach(r=>addPin('a',r));
+  S.descartes.filter(valid).forEach(d=>addPin('d',d));
+  schedule();
+}
+function addPin(kind,o){
+  const b=document.createElement('button');b.type='button';b.dataset.kind=kind;b.dataset.id=o.id;
+  if(kind==='a'){
+    const st=status(o);b.className='pin pin-'+st;b.style.zIndex=st==='pendente'?3:st==='pronta'?2:1;
+    b.setAttribute('aria-label','Caçamba '+o.caixa+', '+STLABEL[st]+', '+o.endereco);
+    b.innerHTML='<span>'+esc(o.caixa)+'</span>'+(o.pago?'<i class="tag">&#10003;</i>':(o.retirada?'<i class="tag due">R$</i>':''));
+  }else{
+    b.className='pin pin-d'+(o.aceita===false?' off':'');b.style.zIndex=0;
+    b.setAttribute('aria-label','Descarte '+o.nome+(o.aceita===false?', não aceita agora':''));
+    b.innerHTML='<span>D</span>';
+  }
+  pinLayer.appendChild(b);M.pins.push({el:b,lat:o.lat,lng:o.lng});
+}
+pinLayer.addEventListener('click',e=>{
+  const b=e.target.closest('.pin');if(!b||M.moved>6||M.picking)return;
+  if(b.dataset.kind==='a')openDetalhe(b.dataset.id);else openDescDetalhe(b.dataset.id);
+});
+function fitAll(){
+  if(!M.w||!M.h){M.pendingFit=true;return}
+  M.pendingFit=false;
+  const pts=[].concat(abertos().filter(valid),S.descartes.filter(valid));
+  if(!pts.length){M.lat=CENTRO.lat;M.lng=CENTRO.lng;M.z=13;schedule();return}
+  let la0=90,la1=-90,lo0=180,lo1=-180;
+  pts.forEach(p=>{la0=Math.min(la0,p.lat);la1=Math.max(la1,p.lat);lo0=Math.min(lo0,p.lng);lo1=Math.max(lo1,p.lng)});
+  M.lat=(la0+la1)/2;M.lng=(lo0+lo1)/2;
+  const fits=z=>Math.abs(wx(lo1,z)-wx(lo0,z))<=M.w-110&&Math.abs(wy(la0,z)-wy(la1,z))<=M.h-220;
+  let z=16;while(z>10&&!fits(z))z--;
+  M.z=z;schedule();
+}
+function zoomBy(d){M.z=Math.max(10,Math.min(19,M.z+d));schedule()}
+function focusOn(o){M.lat=o.lat;M.lng=o.lng;if(M.z<15)M.z=15;schedule()}
+$('#zin').addEventListener('click',()=>zoomBy(1));
+$('#zout').addEventListener('click',()=>zoomBy(-1));
+$('#zfit').addEventListener('click',fitAll);
+let lastWheel=0;
+mapEl.addEventListener('wheel',e=>{e.preventDefault();const t=Date.now();if(t-lastWheel<180)return;lastWheel=t;zoomBy(e.deltaY<0?1:-1)},{passive:false});
+const ptrs=new Map();let drag=null,pinch=null;
+const d2=()=>{const a=Array.from(ptrs.values());return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
+mapEl.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.zoom,.legend,#fab,#pickbar,.note,.mapempty .empty'))return;
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});M.moved=0;
+  if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,lat:M.lat,lng:M.lng,z:M.z};
+  else if(ptrs.size===2){pinch={d:d2()};drag=null}
+});
+window.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2&&pinch){const d=d2(),r=d/pinch.d;M.moved=99;if(r>1.45){zoomBy(1);pinch.d=d}else if(r<0.69){zoomBy(-1);pinch.d=d}return}
+  if(drag&&ptrs.size===1){
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;M.moved=Math.max(M.moved,Math.hypot(dx,dy));
+    if(M.moved>6&&drag.z===M.z){M.lng=unx(wx(drag.lng,M.z)-dx,M.z);M.lat=uny(wy(drag.lat,M.z)-dy,M.z);schedule()}
+  }
+});
+const endPtr=e=>{
+  if(!ptrs.has(e.pointerId))return;
+  ptrs.delete(e.pointerId);
+  if(ptrs.size===0){drag=null;pinch=null}
+  else if(ptrs.size===1){const p=Array.from(ptrs.values())[0];pinch=null;drag={x:p.x,y:p.y,lat:M.lat,lng:M.lng,z:M.z}}
+};
+window.addEventListener('pointerup',endPtr);window.addEventListener('pointercancel',endPtr);
+if(window.ResizeObserver){new ResizeObserver(()=>{M.w=mapEl.clientWidth;M.h=mapEl.clientHeight;if(M.pendingFit)fitAll();schedule()}).observe(mapEl)}
+else{window.addEventListener('resize',()=>{M.w=mapEl.clientWidth;M.h=mapEl.clientHeight;schedule()});M.w=mapEl.clientWidth;M.h=mapEl.clientHeight}
+
+/* Escolher ponto no mapa */
+function startPick(d,cb){
+  M.picking=cb;go('mapa');
+  if(valid(d)){M.lat=d.lat;M.lng=d.lng;if(M.z<16)M.z=16}
+  $('#pickbar').hidden=false;$('#cross').hidden=false;$('#fab').hidden=true;$('#mapEmpty').hidden=true;schedule();
+}
+function endPick(ok){
+  const cb=M.picking;M.picking=null;
+  $('#pickbar').hidden=true;$('#cross').hidden=true;$('#fab').hidden=false;
+  if(cb)cb(ok?{lat:+M.lat.toFixed(6),lng:+M.lng.toFixed(6)}:null);
+  renderTab();
+}
+$('#pickOk').addEventListener('click',()=>endPick(true));
+$('#pickNo').addEventListener('click',()=>endPick(false));
+$('#fab').addEventListener('click',()=>openAluguelForm(novoAluguel(),false));
+
+/* ---------- Local: GPS, mapa, colar ---------- */
+function parseCoords(t){
+  t=String(t||'').trim();if(!t)return null;
+  const m=t.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/)||t.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)||
+    t.match(/[?&](?:q|ll|query|destination)=(-?\d+(?:\.\d+)?)(?:,|%2C)\s*(-?\d+(?:\.\d+)?)/)||
+    t.match(/(-?\d{1,3}\.\d+)\s*[,;\s]\s*(-?\d{1,3}\.\d+)/);
+  if(!m)return null;
+  const la=parseFloat(m[1]),lo=parseFloat(m[2]);
+  if(!(la>=-90&&la<=90&&lo>=-180&&lo<=180))return null;
+  return{lat:la,lng:lo};
+}
+function locHtml(p,d){
+  return '<div class="loc"><div class="loc-head"><span class="lbl">Local no mapa</span><span class="coord" id="'+p+'-coord">'+esc(coordTxt(d))+'</span></div>'+
+  '<div class="loc-btns"><button type="button" class="btn sm" id="'+p+'-gps">Usar minha localização</button><button type="button" class="btn sm" id="'+p+'-pick">Escolher no mapa</button></div>'+
+  '<label class="fld"><span>Colar coordenadas ou link do Google Maps</span><input id="'+p+'-paste" autocomplete="off" placeholder="-10.8853, -61.9517"></label>'+
+  '<p class="hint" id="'+p+'-msg"></p></div>';
+}
+function wireLoc(p,d,hooks){
+  const msg=t=>{$('#'+p+'-msg').textContent=t||''};
+  const upd=()=>{$('#'+p+'-coord').textContent=coordTxt(d);if(hooks.onChange)hooks.onChange()};
+  $('#'+p+'-gps').addEventListener('click',()=>{
+    if(!navigator.geolocation){msg('Este aparelho não liberou o GPS aqui. Cole as coordenadas do Google Maps.');return}
+    msg('Buscando sua posição...');
+    navigator.geolocation.getCurrentPosition(pos=>{d.lat=pos.coords.latitude;d.lng=pos.coords.longitude;msg('Posição marcada.');upd()},
+      ()=>msg('O GPS não respondeu aqui. Cole as coordenadas do Google Maps ou escolha no mapa.'),{enableHighAccuracy:true,timeout:15000});
+  });
+  $('#'+p+'-paste').addEventListener('input',e=>{
+    const v=e.target.value,c=parseCoords(v);
+    if(c){d.lat=c.lat;d.lng=c.lng;msg('Coordenadas lidas.');upd()}
+    else if(v.trim())msg(/goo\.gl|maps\.app/.test(v)?'Link curto não dá para ler aqui. Abra o link e copie as coordenadas.':'Não achei coordenadas. Cole algo como -10.8853, -61.9517.');
+    else msg('');
+  });
+  $('#'+p+'-pick').addEventListener('click',()=>{
+    if(hooks.beforePick)hooks.beforePick();
+    startPick(d,c=>{if(c){d.lat=c.lat;d.lng=c.lng}if(hooks.afterPick)hooks.afterPick(!!c)});
+  });
+}
+
+/* ---------- Caçambas: formulário ---------- */
+const novoAluguel=()=>({id:null,caixa:'',tel:'',endereco:'',lat:null,lng:null,entrega:todayStr(),valor:PADRAO,pago:false,forma:'Dinheiro',pagoEm:null,retirada:null});
+const conflitos=d=>S.alugueis.filter(x=>x.id!==d.id&&String(x.caixa)===String(d.caixa)&&!x.retirada);
+function openAluguelForm(d,isEdit){
+  d=Object.assign({},d);
+  const html='<h2 class="sh-title">'+(isEdit?'Editar caçamba':'Deixei caçamba')+'</h2>'+
+  '<div class="grid2"><label class="fld"><span>Caçamba nº</span><input id="f-caixa" inputmode="numeric" autocomplete="off" value="'+esc(d.caixa)+'"></label>'+
+  '<label class="fld"><span>Telefone do cliente</span><input id="f-tel" type="tel" autocomplete="off" value="'+esc(d.tel)+'"></label></div>'+
+  '<p class="warn" id="f-conf" hidden></p>'+
+  '<label class="fld"><span>Endereço</span><input id="f-end" autocomplete="off" value="'+esc(d.endereco)+'"></label>'+
+  locHtml('f',d)+
+  '<div class="grid2"><label class="fld"><span>Entregue em</span><input id="f-data" type="date" value="'+esc(d.entrega)+'"></label>'+
+  '<label class="fld"><span>Valor (R$)</span><input id="f-valor" inputmode="decimal" value="'+esc(String(d.valor).replace('.',','))+'"></label></div>'+
+  '<label class="chk"><input id="f-pago" type="checkbox"'+(d.pago?' checked':'')+'><span>Já recebi</span></label>'+
+  '<label class="fld" id="f-formaw"'+(d.pago?'':' hidden')+'><span>Forma de pagamento</span><select id="f-forma">'+
+    FORMAS.map(f=>'<option'+(f===(d.forma||'Dinheiro')?' selected':'')+'>'+f+'</option>').join('')+'</select></label>'+
+  (isEdit?'<label class="fld"><span>Retirada em (vazio = ainda na rua)</span><input id="f-ret" type="date" value="'+esc(d.retirada||'')+'"></label>':'')+
+  '<p class="err" id="f-err" role="alert" hidden></p>'+
+  '<div class="actions"><button class="btn primary" id="f-save" type="button">Salvar</button>'+
+  (isEdit?'<button class="btn danger" id="f-del" type="button">Apagar registro</button>':'')+
+  '<button class="btn ghost" data-close type="button">Cancelar</button></div>';
+  openSheet(html,()=>{
+    const rd=()=>{
+      d.caixa=$('#f-caixa').value.trim();d.tel=$('#f-tel').value.trim();d.endereco=$('#f-end').value.trim();
+      d.entrega=$('#f-data').value||todayStr();d.valor=num($('#f-valor').value);d.pago=$('#f-pago').checked;d.forma=$('#f-forma').value;
+      if(isEdit)d.retirada=$('#f-ret').value||null;
+    };
+    const showConf=()=>{
+      const box=$('#f-conf'),v=$('#f-caixa').value.trim();
+      const cs=v&&!(isEdit&&d.retirada)?conflitos({id:d.id,caixa:v}):[];
+      if(cs.length){box.hidden=false;box.textContent='A caçamba '+v+' ainda consta em '+cs[0].endereco+' desde '+fmtD(cs[0].entrega)+'. Ao salvar, a retirada de lá fica registrada hoje.'}
+      else box.hidden=true;
+    };
+    $('#f-caixa').addEventListener('input',showConf);showConf();
+    $('#f-pago').addEventListener('change',e=>{$('#f-formaw').hidden=!e.target.checked});
+    wireLoc('f',d,{beforePick:()=>{rd();closeSheet()},afterPick:()=>openAluguelForm(d,isEdit)});
+    $('#f-save').addEventListener('click',async()=>{
+      rd();
+      const err=m=>{const e=$('#f-err');e.textContent=m;e.hidden=false};
+      if(!d.caixa)return err('Informe o número da caçamba.');
+      if(!d.endereco)return err('Informe o endereço.');
+      if(!valid(d))return err('Marque o local: use o GPS, escolha no mapa ou cole as coordenadas.');
+      if(!isFinite(d.valor)||d.valor<0)return err('Valor inválido.');
+      const rec={id:d.id||uid('a'),caixa:d.caixa,tel:d.tel,endereco:d.endereco,lat:d.lat,lng:d.lng,entrega:d.entrega,valor:d.valor,
+        pago:d.pago,forma:d.pago?d.forma:null,pagoEm:d.pago?(d.pagoEm||todayStr()):null,retirada:d.retirada||null};
+      const conf=rec.retirada?[]:conflitos(rec);
+      closeSheet();
+      for(const c of conf)await put('alugueis',Object.assign({},c,{retirada:todayStr()}));
+      await put('alugueis',rec);
+      toast('Caçamba '+rec.caixa+' salva.'+(conf.length?' A retirada do endereço anterior ficou anotada.':''));
+      if(!isEdit){go('mapa');focusOn(rec)}
+    });
+    if(isEdit){
+      let armed=false;
+      $('#f-del').addEventListener('click',async e=>{
+        if(!armed){armed=true;e.target.textContent='Toque de novo para apagar';return}
+        closeSheet();if(await del('alugueis',d.id))toast('Registro apagado.');
+      });
+    }
+  });
+}
+
+/* Recebi / Retirei */
+function openRecebi(r){
+  const html='<h2 class="sh-title">Recebi · caçamba '+esc(r.caixa)+'</h2><p class="sub">'+esc(r.endereco)+'</p>'+
+  '<div class="grid2"><label class="fld"><span>Valor (R$)</span><input id="r-valor" inputmode="decimal" value="'+esc(String(r.valor).replace('.',','))+'"></label>'+
+  '<label class="fld"><span>Data</span><input id="r-data" type="date" value="'+todayStr()+'"></label></div>'+
+  '<label class="fld"><span>Forma de pagamento</span><select id="r-forma">'+FORMAS.map(f=>'<option'+(f===(r.forma||'Dinheiro')?' selected':'')+'>'+f+'</option>').join('')+'</select></label>'+
+  '<p class="err" id="r-err" hidden role="alert"></p>'+
+  '<div class="actions"><button class="btn primary" id="r-save" type="button">Registrar recebimento</button><button class="btn ghost" data-close type="button">Cancelar</button></div>';
+  openSheet(html,()=>{
+    $('#r-save').addEventListener('click',async()=>{
+      const v=num($('#r-valor').value);
+      if(!isFinite(v)||v<0){const e=$('#r-err');e.textContent='Valor inválido.';e.hidden=false;return}
+      closeSheet();
+      await put('alugueis',Object.assign({},r,{pago:true,valor:v,forma:$('#r-forma').value,pagoEm:$('#r-data').value||todayStr()}));
+      toast(brl(v)+' recebidos da caçamba '+r.caixa+'.');
+    });
+  });
+}
+async function retirar(r){
+  const antes=clone(r);
+  await put('alugueis',Object.assign({},r,{retirada:todayStr()}));
+  toast('Caçamba '+r.caixa+' retirada.','Desfazer',()=>{put('alugueis',antes)});
+}
+function openDetalhe(id){
+  const r=S.alugueis.find(x=>x.id===id);if(!r)return;
+  const st=status(r),dias=daysOut(r);
+  const rota='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(r.lat.toFixed(6)+','+r.lng.toFixed(6))+'&travelmode=driving';
+  const html='<h2 class="sh-title">Caçamba '+esc(r.caixa)+'</h2>'+
+  '<div><span class="pill '+st+'">'+STLABEL[st]+'</span>'+(r.pago?'<span class="pill ok">Pago · '+esc(r.forma||'')+'</span>':'<span class="pill pendente">A receber '+esc(brl(r.valor))+'</span>')+'</div>'+
+  '<dl class="kv"><dt>Endereço</dt><dd>'+esc(r.endereco)+'</dd>'+
+  '<dt>Telefone</dt><dd>'+(r.tel?'<span id="d-tel">'+esc(r.tel)+'</span><button class="copy" type="button" id="d-copy">Copiar</button>':'não informado')+'</dd>'+
+  '<dt>Entrega</dt><dd>'+esc(wday(r.entrega))+' '+fmtD(r.entrega)+(r.retirada?'':' · '+(dias===0?'hoje':dias+(dias===1?' dia':' dias')+' na rua'))+'</dd>'+
+  (r.retirada?'<dt>Retirada</dt><dd>'+fmtD(r.retirada)+'</dd>':'')+
+  '<dt>Valor</dt><dd>'+esc(brl(r.valor))+'</dd></dl>'+
+  '<div class="actions">'+
+  (r.pago?'':'<button class="btn primary" id="d-rec" type="button">Recebi</button>')+
+  (r.retirada?'':'<button class="btn '+(r.pago?'primary':'')+'" id="d-ret" type="button">Retirei</button>')+
+  '<a class="btn" target="_blank" rel="noopener" href="'+rota+'">Rota no Google Maps</a>'+
+  '<button class="btn" id="d-edit" type="button">Editar</button><button class="btn ghost" data-close type="button">Fechar</button></div>';
+  openSheet(html,()=>{
+    const c=$('#d-copy');
+    if(c)c.addEventListener('click',()=>{
+      const t=r.tel;const ok=()=>{c.textContent='Copiado'};
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,()=>{c.textContent='Selecione o número'});else c.textContent='Selecione o número';
+    });
+    const a=$('#d-rec');if(a)a.addEventListener('click',()=>{closeSheet();openRecebi(r)});
+    const b=$('#d-ret');if(b)b.addEventListener('click',()=>{closeSheet();retirar(r)});
+    $('#d-edit').addEventListener('click',()=>{closeSheet();openAluguelForm(clone(r),true)});
+  });
+}
+
+/* ---------- Lista de caçambas ---------- */
+function cardAluguel(r){
+  const st=status(r),dias=daysOut(r);
+  const quando=r.retirada?'Retirada em '+fmtD(r.retirada):(dias===0?'Entregue hoje':dias===1?'1 dia na rua':dias+' dias na rua');
+  return '<div class="card tap" data-open="'+esc(r.id)+'"><div class="crow"><div class="num '+st+'">'+esc(r.caixa)+'</div><div class="cbody">'+
+  '<div class="ctitle">'+esc(r.endereco)+'</div>'+
+  '<div class="cmeta">'+esc(wday(r.entrega))+' '+fmtD(r.entrega)+' · '+esc(quando)+(r.tel?' · '+esc(r.tel):'')+'</div>'+
+  '<div><span class="pill '+st+'">'+STLABEL[st]+'</span>'+(r.pago?'<span class="pill ok">Pago · '+esc(r.forma||'')+'</span>':'<span class="pill pendente">A receber '+esc(brl(r.valor))+'</span>')+'</div></div></div>'+
+  ((r.pago&&r.retirada)?'':'<div class="cact">'+(r.pago?'':'<button class="btn sm" type="button" data-act="rec" data-id="'+esc(r.id)+'">Recebi</button>')+
+  (r.retirada?'':'<button class="btn sm" type="button" data-act="ret" data-id="'+esc(r.id)+'">Retirei</button>')+
+  (valid(r)?'<button class="btn sm" type="button" data-act="map" data-id="'+esc(r.id)+'">Ver no mapa</button>':'')+'</div>')+'</div>';
+}
+function renderLista(){
+  const ab=abertos(),prontas=ab.filter(r=>status(r)==='pronta').sort((a,b)=>a.entrega.localeCompare(b.entrega));
+  const rua=ab.filter(r=>status(r)==='rua').sort((a,b)=>a.entrega.localeCompare(b.entrega));
+  const pend=ab.filter(r=>status(r)==='pendente');
+  const enc=S.alugueis.filter(r=>status(r)==='encerrada').sort((a,b)=>(b.retirada||'').localeCompare(a.retirada||'')).slice(0,30);
+  let h='<h2>Caçambas</h2>';
+  if(!ab.length)h+='<p class="empty">Nenhuma caçamba na rua. Registre a primeira em Deixei caçamba, na aba Mapa.</p>';
+  const sec=(t,l)=>l.length?'<h3>'+t+' · '+l.length+'</h3>'+l.map(cardAluguel).join(''):'';
+  h+=sec('Prontas para buscar',prontas)+sec('Retiradas, falta pagar',pend)+sec('No prazo',rua);
+  if(enc.length)h+='<button class="btn ghost" type="button" id="encTog">'+(S.showEnc?'Esconder encerradas':'Mostrar encerradas ('+enc.length+')')+'</button>'+(S.showEnc?enc.map(cardAluguel).join(''):'');
+  $('#listaBox').innerHTML=h;
+}
+$('#listaBox').addEventListener('click',e=>{
+  if(e.target.id==='encTog'){S.showEnc=!S.showEnc;renderLista();return}
+  const a=e.target.closest('[data-act]');
+  if(a){
+    e.stopPropagation();const r=S.alugueis.find(x=>x.id===a.dataset.id);if(!r)return;
+    if(a.dataset.act==='rec')openRecebi(r);else if(a.dataset.act==='ret')retirar(r);else{go('mapa');focusOn(r)}
+    return;
+  }
+  const c=e.target.closest('[data-open]');if(c)openDetalhe(c.dataset.open);
+});
+
+/* ---------- Descarte ---------- */
+const novoDescarte=()=>({id:null,nome:'',endereco:'',tel:'',lat:null,lng:null,aceita:true});
+function openDescarteForm(d,isEdit){
+  d=Object.assign({},d);
+  const html='<h2 class="sh-title">'+(isEdit?'Editar descarte':'Novo ponto de descarte')+'</h2>'+
+  '<label class="fld"><span>Nome ou referência</span><input id="g-nome" autocomplete="off" placeholder="Terreno do seu João" value="'+esc(d.nome)+'"></label>'+
+  '<label class="fld"><span>Endereço (opcional)</span><input id="g-end" autocomplete="off" value="'+esc(d.endereco)+'"></label>'+
+  '<label class="fld"><span>Telefone do dono (opcional)</span><input id="g-tel" type="tel" autocomplete="off" value="'+esc(d.tel)+'"></label>'+
+  locHtml('g',d)+
+  '<label class="chk"><input id="g-ac" type="checkbox"'+(d.aceita!==false?' checked':'')+'><span>Ainda aceita entulho</span></label>'+
+  '<p class="err" id="g-err" role="alert" hidden></p>'+
+  '<div class="actions"><button class="btn primary" id="g-save" type="button">Salvar</button>'+(isEdit?'<button class="btn danger" id="g-del" type="button">Apagar ponto</button>':'')+
+  '<button class="btn ghost" data-close type="button">Cancelar</button></div>';
+  openSheet(html,()=>{
+    const rd=()=>{d.nome=$('#g-nome').value.trim();d.endereco=$('#g-end').value.trim();d.tel=$('#g-tel').value.trim();d.aceita=$('#g-ac').checked};
+    wireLoc('g',d,{beforePick:()=>{rd();closeSheet()},afterPick:()=>openDescarteForm(d,isEdit)});
+    $('#g-save').addEventListener('click',async()=>{
+      rd();const err=m=>{const e=$('#g-err');e.textContent=m;e.hidden=false};
+      if(!d.nome)return err('Dê um nome ou referência ao ponto.');
+      if(!valid(d))return err('Marque o local: use o GPS, escolha no mapa ou cole as coordenadas.');
+      const rec={id:d.id||uid('d'),nome:d.nome,endereco:d.endereco,tel:d.tel,lat:d.lat,lng:d.lng,aceita:d.aceita};
+      closeSheet();await put('descartes',rec);toast('Ponto de descarte salvo.');
+    });
+    if(isEdit){let armed=false;$('#g-del').addEventListener('click',async e=>{
+      if(!armed){armed=true;e.target.textContent='Toque de novo para apagar';return}
+      closeSheet();if(await del('descartes',d.id))toast('Ponto apagado.');
+    })}
+  });
+}
+function openDescDetalhe(id){
+  const d=S.descartes.find(x=>x.id===id);if(!d)return;
+  const rota='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(d.lat.toFixed(6)+','+d.lng.toFixed(6))+'&travelmode=driving';
+  const html='<h2 class="sh-title">'+esc(d.nome)+'</h2>'+
+  '<div><span class="pill '+(d.aceita===false?'':'ok')+'">'+(d.aceita===false?'Não aceita agora':'Aceita entulho')+'</span></div>'+
+  '<dl class="kv"><dt>Endereço</dt><dd>'+esc(d.endereco||'não informado')+'</dd><dt>Telefone</dt><dd>'+esc(d.tel||'não informado')+'</dd></dl>'+
+  '<div class="actions"><a class="btn primary" target="_blank" rel="noopener" href="'+rota+'">Rota no Google Maps</a>'+
+  '<button class="btn" id="x-edit" type="button">Editar</button><button class="btn ghost" data-close type="button">Fechar</button></div>';
+  openSheet(html,()=>{$('#x-edit').addEventListener('click',()=>{closeSheet();openDescarteForm(clone(d),true)})});
+}
+function renderDescarte(){
+  let h='<h2>Descarte</h2><p class="sub">Terrenos que recebem entulho. Desligue "Aceita" quando o terreno encher.</p><button class="btn primary" type="button" id="descNovo">Novo ponto de descarte</button>';
+  if(!S.descartes.length)h+='<p class="empty">Nenhum ponto cadastrado. Cadastre os terrenos que pedem aterro para vê-los na hora da entrega.</p>';
+  h+=S.descartes.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(d=>
+    '<div class="card tap" data-open="'+esc(d.id)+'"><div class="crow"><div class="num disc">D</div><div class="cbody"><div class="ctitle">'+esc(d.nome)+'</div>'+
+    '<div class="cmeta">'+esc(d.endereco||'sem endereço')+(d.tel?' · '+esc(d.tel):'')+'</div></div>'+
+    '<button class="sw" type="button" data-sw="'+esc(d.id)+'" aria-pressed="'+(d.aceita!==false)+'">'+(d.aceita!==false?'Aceita':'Cheio')+'</button></div></div>').join('');
+  $('#descBox').innerHTML=h;
+}
+$('#descBox').addEventListener('click',e=>{
+  if(e.target.id==='descNovo'){openDescarteForm(novoDescarte(),false);return}
+  const s=e.target.closest('[data-sw]');
+  if(s){e.stopPropagation();const d=S.descartes.find(x=>x.id===s.dataset.sw);if(d)put('descartes',Object.assign({},d,{aceita:d.aceita===false}));return}
+  const c=e.target.closest('[data-open]');if(c)openDescDetalhe(c.dataset.open);
+});
+
+/* ---------- Novo pedido ---------- */
+(function initPedido(){
+  const P=S.pedido;
+  $('#p-loc').innerHTML=locHtml('p',P);
+  $('#p-end').addEventListener('input',e=>{P.endereco=e.target.value});
+  wireLoc('p',P,{onChange:()=>{P.selId=null;P.discId=null;renderPedidoResults()},afterPick:()=>{go('pedido');P.selId=null;P.discId=null;$('#p-coord').textContent=coordTxt(P);renderPedidoResults()}});
+})();
+function renderPedidoResults(){
+  const P=S.pedido,box=$('#pedRes');
+  if(!allReady()){box.innerHTML='<p class="empty">Carregando dados...</p>';return}
+  if(!valid(P)){box.innerHTML='<p class="empty">Marque o local do cliente para ver as caçambas e os descartes mais perto.</p>';return}
+  const here={lat:P.lat,lng:P.lng};
+  const cand=abertos().filter(r=>valid(r)&&!r.retirada&&(P.todas||isLate(r))).map(r=>({r,d:km(here,r)})).sort((a,b)=>a.d-b.d);
+  if(!cand.find(c=>c.r.id===P.selId))P.selId=cand.length?cand[0].r.id:null;
+  const cac=cand.find(c=>c.r.id===P.selId),cr=cac?cac.r:null;
+  const discs=S.descartes.filter(d=>valid(d)&&d.aceita!==false).map(d=>({d,toCli:km(here,d),fromCac:cr?km(cr,d):null,detour:cr?km(cr,d)+km(here,d):km(here,d)})).sort((a,b)=>a.detour-b.detour);
+  if(P.discId!=='none'&&!discs.find(x=>x.d.id===P.discId))P.discId=discs.length?discs[0].d.id:'none';
+  const dsel=P.discId==='none'?null:(discs.find(x=>x.d.id===P.discId)||{}).d||null;
+  const pt=o=>o.lat.toFixed(6)+','+o.lng.toFixed(6);
+  const wps=[cr&&pt(cr),dsel&&pt(dsel)].filter(Boolean).join('|');
+  const url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(pt(here))+(wps?'&waypoints='+encodeURIComponent(wps):'')+'&travelmode=driving';
+  const steps=['Sua posição'].concat(cr?['Caçamba '+cr.caixa]:[],dsel?['Descarte '+dsel.nome]:[],['Cliente']).join(' → ');
+  let h='<h3>Caçambas perto do cliente</h3>';
+  if(!cand.length)h+='<p class="empty">'+(P.todas?'Nenhuma caçamba na rua.':'Nenhuma caçamba pronta para buscar.')+'</p>';
+  else h+=cand.slice(0,8).map(c=>'<label class="opt"><input type="radio" name="p-cac" value="'+esc(c.r.id)+'"'+(c.r.id===P.selId?' checked':'')+'><div class="cbody"><div class="ctitle">Caçamba '+esc(c.r.caixa)+' · '+esc(fmtKm(c.d))+'</div><div class="cmeta">'+esc(c.r.endereco)+' · '+daysOut(c.r)+' dias · '+(c.r.pago?'paga':'a receber '+esc(brl(c.r.valor)))+'</div></div></label>').join('');
+  h+='<label class="chk"><input type="checkbox" id="p-todas"'+(P.todas?' checked':'')+'><span>Mostrar também as que estão no prazo</span></label>';
+  h+='<h3>Descarte no caminho</h3>';
+  if(!discs.length)h+='<p class="empty">Nenhum ponto de descarte aceitando. Cadastre na aba Descarte.</p>';
+  else h+=discs.slice(0,6).map(x=>'<label class="opt"><input type="radio" name="p-dis" value="'+esc(x.d.id)+'"'+(x.d.id===P.discId?' checked':'')+'><div class="cbody"><div class="ctitle">'+esc(x.d.nome)+'</div><div class="cmeta">'+esc(fmtKm(x.toCli))+' do cliente'+(x.fromCac!=null?' · '+esc(fmtKm(x.fromCac))+' da caçamba':'')+'</div></div></label>').join('')+
+    '<label class="opt"><input type="radio" name="p-dis" value="none"'+(P.discId==='none'?' checked':'')+'><div class="cbody"><div class="ctitle">Sem descarte</div></div></label>';
+  h+='<div class="route"><div class="steps">'+esc(steps)+'</div><a class="btn primary" target="_blank" rel="noopener" href="'+url+'">Abrir rota no Google Maps</a>'+
+    '<button class="btn" type="button" id="p-reg">Registrar entrega neste endereço</button><p class="hint">Distâncias em linha reta, não pelas ruas. A rota parte de onde você estiver.</p></div>';
+  box.innerHTML=h;
+}
+$('#pedRes').addEventListener('change',e=>{
+  const P=S.pedido,t=e.target;
+  if(t.name==='p-cac'){P.selId=t.value;P.discId=null}
+  else if(t.name==='p-dis')P.discId=t.value;
+  else if(t.id==='p-todas'){P.todas=t.checked;P.selId=null;P.discId=null}
+  renderPedidoResults();
+});
+$('#pedRes').addEventListener('click',e=>{
+  if(e.target.id!=='p-reg')return;
+  const P=S.pedido,r=S.alugueis.find(x=>x.id===P.selId);
+  const d=novoAluguel();d.endereco=P.endereco.trim();d.lat=P.lat;d.lng=P.lng;if(r)d.caixa=String(r.caixa);
+  openAluguelForm(d,false);
+});
+
+/* ---------- Dinheiro ---------- */
+function openGastoForm(){
+  const html='<h2 class="sh-title">Lançar gasto</h2>'+
+  '<label class="fld"><span>Tipo</span><select id="x-tipo"><option>Gasolina</option><option>Manutenção</option><option>Outro</option></select></label>'+
+  '<div class="grid2"><label class="fld"><span>Valor (R$)</span><input id="x-valor" inputmode="decimal" autocomplete="off"></label>'+
+  '<label class="fld"><span>Data</span><input id="x-data" type="date" value="'+todayStr()+'"></label></div>'+
+  '<label class="fld"><span>Observação (opcional)</span><input id="x-obs" autocomplete="off"></label>'+
+  '<p class="err" id="x-err" role="alert" hidden></p>'+
+  '<div class="actions"><button class="btn primary" id="x-save" type="button">Salvar gasto</button><button class="btn ghost" data-close type="button">Cancelar</button></div>';
+  openSheet(html,()=>{
+    $('#x-valor').focus();
+    $('#x-save').addEventListener('click',async()=>{
+      const v=num($('#x-valor').value);
+      if(!isFinite(v)||v<=0){const e=$('#x-err');e.textContent='Informe o valor do gasto.';e.hidden=false;return}
+      const g={id:uid('g'),tipo:$('#x-tipo').value,valor:v,data:$('#x-data').value||todayStr(),obs:$('#x-obs').value.trim()};
+      closeSheet();await put('gastos',g);toast('Gasto de '+brl(v)+' lançado.');
+    });
+  });
+}
+function shiftMes(d){const p=S.mes.split('-').map(Number);const dt=new Date(p[0],p[1]-1+d,1);S.mes=dt.getFullYear()+'-'+pad(dt.getMonth()+1);renderDinheiro()}
+function renderDinheiro(){
+  const m=S.mes;
+  const rec=S.alugueis.filter(r=>r.pago&&(r.pagoEm||r.entrega).slice(0,7)===m);
+  const recebido=rec.reduce((s,r)=>s+(Number(r.valor)||0),0);
+  const gs=S.gastos.filter(g=>(g.data||'').slice(0,7)===m).sort((a,b)=>b.data.localeCompare(a.data));
+  const gasto=gs.reduce((s,g)=>s+(Number(g.valor)||0),0);
+  const receber=S.alugueis.filter(r=>!r.pago).reduce((s,r)=>s+(Number(r.valor)||0),0);
+  const sobra=recebido-gasto;
+  const porF=FORMAS.map(f=>({f,v:rec.filter(r=>r.forma===f).reduce((s,r)=>s+(Number(r.valor)||0),0),n:rec.filter(r=>r.forma===f).length}));
+  const mx=Math.max(1,...porF.map(x=>x.v));
+  let h='<h2>Dinheiro</h2><div class="mes"><button class="btn" type="button" id="mAnt" aria-label="Mês anterior">&lsaquo;</button><strong>'+esc(monthLabel(m))+'</strong><button class="btn" type="button" id="mProx" aria-label="Próximo mês">&rsaquo;</button></div>'+
+  '<div class="tiles"><div class="tile-k main"><div class="k">Recebido</div><div class="v">'+esc(brl(recebido))+'</div></div>'+
+  '<div class="tile-k"><div class="k">Gastos</div><div class="v">'+esc(brl(gasto))+'</div></div>'+
+  '<div class="tile-k"><div class="k">Sobra</div><div class="v'+(sobra<0?' neg':'')+'">'+esc(brl(sobra))+'</div></div>'+
+  '<div class="tile-k"><div class="k">A receber (total)</div><div class="v">'+esc(brl(receber))+'</div></div></div>'+
+  '<h3>Recebido por forma · '+rec.length+(rec.length===1?' aluguel':' aluguéis')+'</h3><div class="card">'+
+  porF.map(x=>'<div class="bar"><span class="l">'+esc(x.f)+'</span><span class="t"><i style="width:'+(x.v/mx*100).toFixed(1)+'%"></i></span><span class="v">'+esc(brl(x.v))+'</span></div>').join('')+'</div>'+
+  '<h3>Gastos do mês</h3><button class="btn primary" type="button" id="gNovo">Lançar gasto</button>';
+  if(!gs.length)h+='<p class="empty">Nenhum gasto neste mês.</p>';
+  else h+=gs.map(g=>'<div class="card"><div class="crow"><div class="cbody"><div class="ctitle">'+esc(g.tipo)+' · '+esc(brl(g.valor))+'</div><div class="cmeta">'+fmtD(g.data)+(g.obs?' · '+esc(g.obs):'')+'</div></div><button class="btn sm ghost" type="button" data-gdel="'+esc(g.id)+'">Apagar</button></div></div>').join('');
+  $('#dinBox').innerHTML=h;
+}
+$('#dinBox').addEventListener('click',async e=>{
+  const t=e.target;
+  if(t.id==='mAnt')shiftMes(-1);else if(t.id==='mProx')shiftMes(1);else if(t.id==='gNovo')openGastoForm();
+  else if(t.dataset&&t.dataset.gdel){
+    if(t.dataset.armed!=='1'){t.dataset.armed='1';t.textContent='Confirmar';return}
+    if(await del('gastos',t.dataset.gdel))toast('Gasto apagado.');
+  }
+});
+
+renderHeader();
+renderTab();
+boot();
+})();
+</script>
+</body></html>
